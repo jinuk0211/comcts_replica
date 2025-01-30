@@ -1,123 +1,86 @@
 # comcts_replica
 ```python
-python infer.py \
---model 'Mulberry_llava_8b' \
---model_path 'HuanjinYao/Mulberry_llava_8b' \
---question 'Question: <Your_Question>' \
---img_path '<Your_Img_Path>'
+CUDA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7' python code/run_comcts.py \
+    --image_dir_path ./demo_data/images \
+    --data_path ./demo_data/comcts_input_data.json \
+    --output_path ./output/comcts_data.jsonl \
+    --max_iterations 20 \
+    --exploration_weight 0.5 \
+    --gpt_version 'gpt-4o' \
+    --openai_api_key "Your_Open_API_Key" \
+    --qwen2_vl_7b_model_path 'Qwen/Qwen2-VL-7B-Instruct' \
+    --qwen2_vl_72b_model_path 'Qwen/Qwen2-VL-72B-Instruct' \
+    --llama3_vision_11b_model_path 'meta-llama/Llama-3.2-11B-Vision-Instruct' 
 ```
-infer.py
+
+run_comcts.py
 ```python
-
-import transformers
-from transformers import LlavaNextProcessor, LlavaNextForConditionalGeneration
-import torch
-from PIL import Image
+from openai import OpenAI
+import json
+# import base64
+from tqdm import tqdm
+import os
+# import math
 import argparse
+from utils import *
+from model import *
+from comcts import *
+import pdb
+import time
 
-
-PROMPT = """Generate an image description based on the question.
-Then, provide a rationale to analyze the question.
-Next, generate a step-by-step reasoning process to solve the problem. Ensure the steps are logical and concise.
-Finally, provide a concise summary of the final answer in the following format: 'The final answer is: xxx'. If the question is multiple-choice, provide the options along with their content. If it is free-form, directly present the final result. Do not provide any explanation.
-
-Format your response with the following sections, separated by ###:
-### Image Description:
-### Rationales:
-### Let's think step by step.
-### Step 1:
-### Step 2:
-...
-### The final answer is: 
-
-{question}"""
-
-
-def llava_infer(model_path, question, img_path, only_output_final_answer=False):
-
-    def output_process(answer):
-        if "<s>" in answer:
-            answer = answer.replace("<s>", "").strip()
-        if "[/INST]" in answer:
-            answer = answer.split("[/INST]")[1].strip()
-        elif "ASSISTANT:" in answer:
-            answer = answer.split("ASSISTANT:")[1].strip()
-        elif "assistant\n" in answer:
-            answer = answer.split("assistant\n")[1].strip()
-        elif "<|end_header_id|>\n\n" in answer:
-            answer = answer.split("<|end_header_id|>\n\n")[2].strip()
-
-        if "</s>" in answer:
-            answer = answer.split("</s>")[0].strip()
-        elif "<|im_end|>" in answer:
-            answer = answer.split("<|im_end|>")[0].strip()
-        elif "<|eot_id|>" in answer:
-            answer = answer.split("<|eot_id|>")[0].strip()
-        return answer
-
-
-    processor = LlavaNextProcessor.from_pretrained(model_path)
-
-    model = LlavaNextForConditionalGeneration.from_pretrained(
-        model_path,
-        torch_dtype=torch.float16,
-        low_cpu_mem_usage=True,
-        use_flash_attention_2=True,
-    )
-
-    model = model.eval().cuda()
-
-    kwargs = dict(
-        do_sample=False, temperature=0, max_new_tokens=1024, top_p=None, num_beams=1
-    )
-
-    images = [Image.open(img_path).convert("RGB")]
-    
-    content = [
-        {"type": 'text', "text":PROMPT.format(question=question)},
-        {"type": "image"}
-        ]
-
-    conversation = [
-        {
-            "role": "user",
-            "content": content,
-        }
-    ]
-
-    prompt = processor.apply_chat_template(
-        conversation, add_generation_prompt=True
-    )
-    inputs = processor(prompt, images, return_tensors="pt").to(
-        "cuda", torch.float16
-    )
-
-    output = model.generate(**inputs, **kwargs)
-    answer = processor.decode(output[0], skip_special_token=True)
-    answer = output_process(answer)
-
-    if only_output_final_answer:
-        if len(answer.split('### The final answer is:')) == 2:
-            answer = answer.split('### The final answer is:')[-1].strip()
-            return answer
+def infer_comcts(args):
+    data_path = args.data_path 
+    if data_path.endswith('.jsonl'):
+        data = read_jsonl(data_path)
     else:
-        return answer
+        with open(data_path, 'r') as f:
+            data = json.load(f)
 
+    output_path = args.output_path
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    ans_file = open(output_path, "w")
+    failed_search_path = args.output_path.replace('.jsonl', '_failed.jsonl')
+    failed_search_file = open(failed_search_path, "w")
+
+    # print(args.num_chunks, args.chunk_idx)
+    data = get_chunk(data, args.num_chunks, args.chunk_idx)    
+    
+    client = OpenAI(
+        base_url=args.openai_base_url,
+        api_key=args.openai_api_key,        
+    )
+
+    activated_models, model_dict = init_model(args)
+
+    for d in tqdm(data):
+        comcts = CoMCTS(args, '', '', max_iterations=args.max_iterations)
+        comcts.search(d, client, activated_models, model_dict, ans_file, failed_search_file)        
+
+    ans_file.close()
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default='Mulberry_llava_8b')
-    parser.add_argument("--question", type=str, default=None)
-    parser.add_argument("--img_path", type=str, default=None)
-    parser.add_argument("--model_path", type=str, default=None)
-    parser.add_argument("--only_output_final_answer", action='store_true')
+    parser.add_argument("--data_path", type=str, default=None)
+    parser.add_argument("--image_dir_path", type=str, default=None)
+    parser.add_argument("--output_path", type=str, default=None)
+    parser.add_argument("--num_chunks", type=int, default=1)
+    parser.add_argument("--chunk_idx", type=int, default=0)
+    parser.add_argument("--qwen2_vl_72b_model_path", type=str, default=None)
+    parser.add_argument("--qwen2_vl_7b_model_path", type=str, default=None)
+    parser.add_argument("--qwen2_vl_2b_model_path", type=str, default=None)
+    parser.add_argument("--llama3_vision_11b_model_path", type=str, default=None)
+    parser.add_argument("--llava_next_8b_model_path", type=str, default=None)
+    parser.add_argument("--openai_api_key", type=str, default=None)
+    parser.add_argument("--openai_base_url", type=str, default='https://api.openai.com/v1')
+    parser.add_argument("--gpt_version", type=str, default=None)
+    parser.add_argument("--use_multi_thread", action='store_true')
+    parser.add_argument("--temperature", type=float, default=0.9)
+    parser.add_argument("--eval_expert", type=list, default=['gpt-4o', 'qwen2_vl_72b']) 
+    parser.add_argument("--exploration_weight", type=float, default=0.5)
+    parser.add_argument("--max_iterations", type=int, default=20)
+    parser.add_argument("--threshold", type=float, default=0)
     args = parser.parse_args()
 
-    if args.model == 'Mulberry_llava_8b':
-        answer = llava_infer(args.model_path, args.question, args.img_path, args.only_output_final_answer)
-    else:
-        raise NotImplementedError()
+    infer_comcts(args)
 
-    print(answer)
 ```
