@@ -327,6 +327,37 @@ class CoMCTS:
             all_correctness = self._determine_correctness(
                 comcts_dict, client, question, gt_answer, activated_models
             )
+#----------------------------------------------------------
+    def _determine_correctness(self, comcts_dict, client, question, gt_answer, activated_models):
+        """determine correctness."""
+        all_correctness = []
+        for model_name in activated_models:
+            if comcts_dict[model_name]['valid'] == -1:
+                continue
+            response = comcts_dict[model_name]['response']
+            model_answer = response.split('### The final answer is:')[-1].strip()
+            while True:
+                try:
+                    judge_output = gpt_forward(client, JUDGE_PROMPT.format(question=question, model_answer=model_answer, gt_answer=gt_answer))
+                    break
+                except Exception as e:
+                    time.sleep(1)
+                    print(e)
+            
+            is_correct = get_correctness(judge_output)
+
+#------------------
+def get_correctness(judge_output):
+    if 'yes' in judge_output.lower() and 'no' not in judge_output.lower():
+        return 1
+    else:
+        return -1
+#-------------------
+            all_correctness.append(is_correct)
+            comcts_dict[model_name]['is_correct'] = is_correct
+        
+        return all_correctness
+#----------------------------------------------------------
             if len(all_correctness) == 0:
                 continue
 
