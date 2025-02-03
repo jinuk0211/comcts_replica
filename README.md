@@ -327,7 +327,7 @@ class CoMCTS:
             all_correctness = self._determine_correctness(
                 comcts_dict, client, question, gt_answer, activated_models
             )
-#----------------------------------------------------------
+#----------------------------------------------------------determine_correctness 함수 설명
     def _determine_correctness(self, comcts_dict, client, question, gt_answer, activated_models):
         """determine correctness."""
         all_correctness = []
@@ -347,17 +347,19 @@ class CoMCTS:
             is_correct = get_correctness(judge_output)
 
 #------------------
+#-----------------
 def get_correctness(judge_output):
     if 'yes' in judge_output.lower() and 'no' not in judge_output.lower():
         return 1
     else:
         return -1
 #-------------------
+#-------------------
             all_correctness.append(is_correct)
             comcts_dict[model_name]['is_correct'] = is_correct
         
         return all_correctness
-#----------------------------------------------------------
+#----------------------------------------------------------_determine_correctness 함수 끝
             if len(all_correctness) == 0:
                 continue
 
@@ -373,6 +375,18 @@ def get_correctness(judge_output):
             if comcts_dict[model_name]['valid'] == -1:
                 continue
             depth = get_depth(comcts_dict[model_name]['response'])
+#--------------------------get depth 함수
+def get_depth(response):
+    # image description is depth 1
+    steps = response.split('###')
+    return len(steps) - 1
+
+
+def get_step(response, depth):
+    res = response.split('###')
+    return '###' + res[depth]
+#--------------------------
+
 
             if 'gpt-4o' in self.args.eval_expert:
                 is_correct = comcts_dict[model_name]['is_correct']
@@ -382,6 +396,22 @@ def get_correctness(judge_output):
                     try:
                         step_correctness_response = gpt_forward(client, LOCATE_ERROR_PROMPT.format(question=question, reasoning=comcts_dict[model_name]['response'], gt=gt_answer), base64_image, temperature)
                         step_correctness = step_correctness_to_list(step_correctness_response, depth=depth)
+#-------------------------------------------- step_correctness_to_list 함수
+def step_correctness_to_list(response, depth):
+    step_correctness_list = []
+    output_scores = response.split('Final Decision:')[-1].strip()
+    output_scores_list = output_scores.split(';')
+    for score in output_scores_list:
+        if 'incorrect' in score.lower():
+            step_correctness_list.append(-1)
+        elif 'neutral' in score.lower():
+            step_correctness_list.append(0)
+        elif 'correct' in score.lower():
+            step_correctness_list.append(1)
+    if len(step_correctness_list) != depth-1:
+        return [-2]
+    return step_correctness_list
+#-------------------------------------------step_correctness_to_list 함수 끝
                         if step_correctness != [-2] or try_count > max_try_count:
                             break
                         try_count += 1
@@ -439,7 +469,7 @@ def get_correctness(judge_output):
             comcts_dict[model_name] = {'response': comcts_dict[model_name]['response'], "value": round(value,3), 'step_value': step_value, "is_correct": is_correct, 'valid': comcts_dict[model_name]['valid']}
         
         return comcts_dict
-#-------------------------------------
+#------------------------------------- process_correct_path 설명 끝
                 comcts_dict['image'] = data['image']
                 comcts_dict['question'] = question
                 comcts_dict['prefix_prompt'] = prefix_steps
@@ -451,6 +481,8 @@ def get_correctness(judge_output):
                 self._process_incorrect_paths(
                     model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps
                 )
+#----------------------------------- CoMCTS.search  끝
+
 
             if iteration >= self.max_iterations:
                 for model_name in activated_models:
@@ -606,7 +638,7 @@ def get_correctness(judge_output):
 
                 up_node = up_node.parent
 ```
-
+```
 JUDGE_PROMPT = """Evaluate whether the model's answer matches the correct result. 
 
 - If it does not align, respond with 'No'.
@@ -897,32 +929,7 @@ def check_validity(response):
         return True
     return False
 
-def get_depth(response):
-    # image description is depth 1
-    steps = response.split('###')
-    return len(steps) - 1
 
-
-def get_step(response, depth):
-    res = response.split('###')
-    return '###' + res[depth]
-
-
-def step_correctness_to_list(response, depth):
-    step_correctness_list = []
-    output_scores = response.split('Final Decision:')[-1].strip()
-    output_scores_list = output_scores.split(';')
-    for score in output_scores_list:
-        if 'incorrect' in score.lower():
-            step_correctness_list.append(-1)
-        elif 'neutral' in score.lower():
-            step_correctness_list.append(0)
-        elif 'correct' in score.lower():
-            step_correctness_list.append(1)
-    if len(step_correctness_list) != depth-1:
-        return [-2]
-    return step_correctness_list
-    
 
 def prune_response(response, idx): 
     steps = response.split('###')
