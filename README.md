@@ -366,6 +366,80 @@ def get_correctness(judge_output):
                 comcts_dict = self._process_correct_paths(
                     model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps
                 )
+#-------------------------------------process_correct_path 설명
+    def _process_correct_paths(self, model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps):
+        """Handle scenarios where correct paths are found."""
+        for model_name in activated_models:
+            if comcts_dict[model_name]['valid'] == -1:
+                continue
+            depth = get_depth(comcts_dict[model_name]['response'])
+
+            if 'gpt-4o' in self.args.eval_expert:
+                is_correct = comcts_dict[model_name]['is_correct']
+                while True:
+                    max_try_count = 3
+                    try_count = 0
+                    try:
+                        step_correctness_response = gpt_forward(client, LOCATE_ERROR_PROMPT.format(question=question, reasoning=comcts_dict[model_name]['response'], gt=gt_answer), base64_image, temperature)
+                        step_correctness = step_correctness_to_list(step_correctness_response, depth=depth)
+                        if step_correctness != [-2] or try_count > max_try_count:
+                            break
+                        try_count += 1
+                    except Exception as e:
+                        time.sleep(1)
+                        print(e)
+
+            if 'qwen2_vl_72b' in self.args.eval_expert and 'qwen2_vl_72b' in activated_models:
+                qwen2_vl_step_correctness_response = qwen2_vl_forward(model_dict['qwen2_vl_72b']['model'], model_dict['qwen2_vl_7b']['processor'], \
+                    LOCATE_ERROR_PROMPT.format(question=question, reasoning=comcts_dict[model_name]['response'], gt=gt_answer), '', img_path, temperature)
+                qwen2_vl_step_correctness = step_correctness_to_list(qwen2_vl_step_correctness_response, depth=depth)
+
+                if len(step_correctness) == len(qwen2_vl_step_correctness) and step_correctness != [-2] and qwen2_vl_step_correctness != [-2]:
+                    for j in range(len(step_correctness)):
+                        step_correctness[j] = 0.7 * step_correctness[j] + 0.3 * qwen2_vl_step_correctness[j]
+                elif qwen2_vl_step_correctness != [-2] and qwen2_vl_step_correctness == [-2]:
+                    step_correctness = qwen2_vl_step_correctness
+
+            if step_correctness == [-2]:
+                comcts_dict[model_name]['valid'] = -1
+
+
+            prefix_steps_depth = get_depth(expand_node.text)
+            suffix_steps_depth = get_depth(comcts_dict[model_name]['response']) - 1 # remove final answer
+            new_step = ''
+            current_node = expand_node
+            new_prefix_steps = prefix_steps
+            for i in range(prefix_steps_depth, suffix_steps_depth):  
+                new_prefix_steps = new_prefix_steps + new_step
+                new_step = get_step(comcts_dict[model_name]['response'], i+1)
+                current_node = current_node.add_child(step_text=new_step, prefix_steps=new_prefix_steps, step_correctness=step_correctness[:(i+1)])
+            
+            ## Backpropagation
+            # leaf node
+            up_node = current_node
+            depth_diff = suffix_steps_depth - prefix_steps_depth
+            step_value = []
+            for idx in range(suffix_steps_depth, 0, -1):
+                if idx > prefix_steps_depth:
+                    # new node
+                    new_value = sum(step_correctness[prefix_steps_depth:idx])
+                    up_node.update_value(parent_visits=expand_node.visits, parent_value=expand_node.value, new_value=new_value, new_visits=idx-prefix_steps_depth)
+                    up_node.update_visits()
+                else:
+                    new_value = step_correctness[idx-1]
+                    up_node.update_value(parent_visits=up_node.parent.visits, parent_value=up_node.parent.value, new_value=new_value, new_visits=1)
+                    up_node.update_visits()
+
+                step_value.insert(0, round(up_node.value,3))
+                up_node = up_node.parent
+
+            value = (current_node.value +
+                    self.args.exploration_weight * math.sqrt(math.log(current_node.parent.visits+1) / current_node.visits+1))
+
+            comcts_dict[model_name] = {'response': comcts_dict[model_name]['response'], "value": round(value,3), 'step_value': step_value, "is_correct": is_correct, 'valid': comcts_dict[model_name]['valid']}
+        
+        return comcts_dict
+#-------------------------------------
                 comcts_dict['image'] = data['image']
                 comcts_dict['question'] = question
                 comcts_dict['prefix_prompt'] = prefix_steps
@@ -444,78 +518,7 @@ def get_correctness(judge_output):
         return all_correctness
         
 
-    def _process_correct_paths(self, model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps):
-        """Handle scenarios where correct paths are found."""
-        for model_name in activated_models:
-            if comcts_dict[model_name]['valid'] == -1:
-                continue
-            depth = get_depth(comcts_dict[model_name]['response'])
 
-            if 'gpt-4o' in self.args.eval_expert:
-                is_correct = comcts_dict[model_name]['is_correct']
-                while True:
-                    max_try_count = 3
-                    try_count = 0
-                    try:
-                        step_correctness_response = gpt_forward(client, LOCATE_ERROR_PROMPT.format(question=question, reasoning=comcts_dict[model_name]['response'], gt=gt_answer), base64_image, temperature)
-                        step_correctness = step_correctness_to_list(step_correctness_response, depth=depth)
-                        if step_correctness != [-2] or try_count > max_try_count:
-                            break
-                        try_count += 1
-                    except Exception as e:
-                        time.sleep(1)
-                        print(e)
-
-            if 'qwen2_vl_72b' in self.args.eval_expert and 'qwen2_vl_72b' in activated_models:
-                qwen2_vl_step_correctness_response = qwen2_vl_forward(model_dict['qwen2_vl_72b']['model'], model_dict['qwen2_vl_7b']['processor'], \
-                    LOCATE_ERROR_PROMPT.format(question=question, reasoning=comcts_dict[model_name]['response'], gt=gt_answer), '', img_path, temperature)
-                qwen2_vl_step_correctness = step_correctness_to_list(qwen2_vl_step_correctness_response, depth=depth)
-
-                if len(step_correctness) == len(qwen2_vl_step_correctness) and step_correctness != [-2] and qwen2_vl_step_correctness != [-2]:
-                    for j in range(len(step_correctness)):
-                        step_correctness[j] = 0.7 * step_correctness[j] + 0.3 * qwen2_vl_step_correctness[j]
-                elif qwen2_vl_step_correctness != [-2] and qwen2_vl_step_correctness == [-2]:
-                    step_correctness = qwen2_vl_step_correctness
-
-            if step_correctness == [-2]:
-                comcts_dict[model_name]['valid'] = -1
-
-
-            prefix_steps_depth = get_depth(expand_node.text)
-            suffix_steps_depth = get_depth(comcts_dict[model_name]['response']) - 1 # remove final answer
-            new_step = ''
-            current_node = expand_node
-            new_prefix_steps = prefix_steps
-            for i in range(prefix_steps_depth, suffix_steps_depth):  
-                new_prefix_steps = new_prefix_steps + new_step
-                new_step = get_step(comcts_dict[model_name]['response'], i+1)
-                current_node = current_node.add_child(step_text=new_step, prefix_steps=new_prefix_steps, step_correctness=step_correctness[:(i+1)])
-            
-            ## Backpropagation
-            # leaf node
-            up_node = current_node
-            depth_diff = suffix_steps_depth - prefix_steps_depth
-            step_value = []
-            for idx in range(suffix_steps_depth, 0, -1):
-                if idx > prefix_steps_depth:
-                    # new node
-                    new_value = sum(step_correctness[prefix_steps_depth:idx])
-                    up_node.update_value(parent_visits=expand_node.visits, parent_value=expand_node.value, new_value=new_value, new_visits=idx-prefix_steps_depth)
-                    up_node.update_visits()
-                else:
-                    new_value = step_correctness[idx-1]
-                    up_node.update_value(parent_visits=up_node.parent.visits, parent_value=up_node.parent.value, new_value=new_value, new_visits=1)
-                    up_node.update_visits()
-
-                step_value.insert(0, round(up_node.value,3))
-                up_node = up_node.parent
-
-            value = (current_node.value +
-                    self.args.exploration_weight * math.sqrt(math.log(current_node.parent.visits+1) / current_node.visits+1))
-
-            comcts_dict[model_name] = {'response': comcts_dict[model_name]['response'], "value": round(value,3), 'step_value': step_value, "is_correct": is_correct, 'valid': comcts_dict[model_name]['valid']}
-        
-        return comcts_dict
         
 
     def _process_incorrect_paths(self, model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps):
