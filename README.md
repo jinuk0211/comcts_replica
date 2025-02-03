@@ -598,6 +598,58 @@ def step_correctness_to_list(response, depth):
 
             # Prune the first node smaller than the threshold.
             comcts_dict[model_name] = prune_tree(comcts_dict[model_name], start_index=get_depth(expand_node.text), threshold=self.args.threshold)
+#------------------------------------------------prune_tree 함수 설명
+def prune_response(response, idx): 
+    steps = response.split('###')
+    len_steps = len(steps) - 1
+    if idx == 0:
+        return ''
+    elif idx == 1:
+        index = response.find('### Rationales:')
+        if index != -1:
+            return response[:index]
+        else:
+            return response
+    elif idx == 2:
+        index = response.find("### Let's think step by step") if response.find("### Let's think step by step") != -1 else response.find("###Let's think step by step")
+        if index != -1:
+            return response[:index]
+    elif idx > 2 and idx < len_steps-1:
+        index = response.find(f'### Step {idx-2}')
+        if index != -1:
+            return response[:index]
+    elif idx == len_steps-1:
+        index = response.find(f'### The final answer is:')
+        if index != -1:
+            return response[:index]
+    else:
+        return ''
+
+
+def prune_tree(comcts_dict, start_index, threshold=0):
+    pruned_comcts_dict = dict()
+    step_correctness_list = comcts_dict['step_correctness']
+    first_less_than_zero_idx = -1
+    for i, value in enumerate(step_correctness_list):
+        if i < start_index:
+            continue
+        if value < threshold:
+            first_less_than_zero_idx = i
+            break
+
+    if first_less_than_zero_idx == -1 or first_less_than_zero_idx == 0:
+        comcts_dict['valid'] = -1
+        return comcts_dict
+    
+    pruned_response = prune_response(comcts_dict['response'], first_less_than_zero_idx)
+    pruned_step_correctness = step_correctness_list[:first_less_than_zero_idx]
+
+    pruned_comcts_dict['response'] = pruned_response
+    pruned_comcts_dict['step_correctness'] = pruned_step_correctness
+    pruned_comcts_dict['valid'] = comcts_dict['valid']
+
+    return pruned_comcts_dict
+#---------------------------------------------prune_tree 끝
             if comcts_dict[model_name]['valid'] == -1:
                 up_node = expand_node
                 while up_node.parent is not None:
@@ -931,56 +983,6 @@ def check_validity(response):
 
 
 
-def prune_response(response, idx): 
-    steps = response.split('###')
-    len_steps = len(steps) - 1
-    if idx == 0:
-        return ''
-    elif idx == 1:
-        index = response.find('### Rationales:')
-        if index != -1:
-            return response[:index]
-        else:
-            return response
-    elif idx == 2:
-        index = response.find("### Let's think step by step") if response.find("### Let's think step by step") != -1 else response.find("###Let's think step by step")
-        if index != -1:
-            return response[:index]
-    elif idx > 2 and idx < len_steps-1:
-        index = response.find(f'### Step {idx-2}')
-        if index != -1:
-            return response[:index]
-    elif idx == len_steps-1:
-        index = response.find(f'### The final answer is:')
-        if index != -1:
-            return response[:index]
-    else:
-        return ''
-
-
-def prune_tree(comcts_dict, start_index, threshold=0):
-    pruned_comcts_dict = dict()
-    step_correctness_list = comcts_dict['step_correctness']
-    first_less_than_zero_idx = -1
-    for i, value in enumerate(step_correctness_list):
-        if i < start_index:
-            continue
-        if value < threshold:
-            first_less_than_zero_idx = i
-            break
-
-    if first_less_than_zero_idx == -1 or first_less_than_zero_idx == 0:
-        comcts_dict['valid'] = -1
-        return comcts_dict
-    
-    pruned_response = prune_response(comcts_dict['response'], first_less_than_zero_idx)
-    pruned_step_correctness = step_correctness_list[:first_less_than_zero_idx]
-
-    pruned_comcts_dict['response'] = pruned_response
-    pruned_comcts_dict['step_correctness'] = pruned_step_correctness
-    pruned_comcts_dict['valid'] = comcts_dict['valid']
-
-    return pruned_comcts_dict
 
 
 def modified_qwen_response(response):
