@@ -285,6 +285,7 @@ class Node:
 
 class CoMCTS:
     def __init__(self, args, step_text, prefix_steps, max_iterations=15):
+        #comcts = CoMCTS(args, '', '', max_iterations=args.max_iterations)
         self.root = Node(step_text, prefix_steps)
         self.max_iterations = max_iterations
         self.args = args
