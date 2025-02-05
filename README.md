@@ -371,8 +371,42 @@ def reformat_reasoning_prefix(reasoning):
             ## Expansion: Generate responses for each model
             for model_name in activated_models:
                 response = self._generate_model_response(
-                    model_name, question, prefix_steps, base64_image, temperature, model_dict, img_path, iteration, client
+                    model_name, question, prefix_steps, base64_image, temperature, model_dict, img_path, iteration, client)
+#------------------------------------
+def _generate_model_response(self, model_name, question, prefix_steps, base64_image, temperature, model_dict, img_path, iteration, client):
+        """Generate model-specific responses."""
+        open_source_prefix_steps = "### Image Description:" if prefix_steps == '' else ''
+        try:
+            if model_name == 'gpt-4o':
+                if iteration == 0:
+                    return gpt_forward(client, PROMPT.format(question=question), base64_image, temperature)
+                return gpt_forward(client, GPT_PREFIX_PROMPT.format(question=question, reasoning_prefix=prefix_steps), base64_image, temperature)
+            elif 'qwen2_vl' in model_name:
+                return modified_qwen_response(
+                    qwen2_vl_forward(
+                        model_dict[model_name]['model'],
+                        model_dict[model_name]['processor'],
+                        PROMPT.format(question=question),
+                        open_source_prefix_steps + prefix_steps,
+                        img_path
+                    )
                 )
+            elif 'llama_vision' in model_name:
+                return modified_llama_response(
+                    llama_forward(
+                        model_dict[model_name]['model'],
+                        model_dict[model_name]['processor'],
+                        PROMPT.format(question=question),
+                        open_source_prefix_steps + prefix_steps,
+                        img_path
+                    )
+                )
+        except Exception as e:
+            print(f"Error generating response for {model_name}: {e}")
+            time.sleep(1)
+            return None
+#--------------
+
                 comcts_dict[model_name]['response'] = response if response else ''
 
             # Validate responses
@@ -594,38 +628,6 @@ def step_correctness_to_list(response, depth):
                 failed_search_file.flush()
                 break
 
-    def _generate_model_response(self, model_name, question, prefix_steps, base64_image, temperature, model_dict, img_path, iteration, client):
-        """Generate model-specific responses."""
-        open_source_prefix_steps = "### Image Description:" if prefix_steps == '' else ''
-        try:
-            if model_name == 'gpt-4o':
-                if iteration == 0:
-                    return gpt_forward(client, PROMPT.format(question=question), base64_image, temperature)
-                return gpt_forward(client, GPT_PREFIX_PROMPT.format(question=question, reasoning_prefix=prefix_steps), base64_image, temperature)
-            elif 'qwen2_vl' in model_name:
-                return modified_qwen_response(
-                    qwen2_vl_forward(
-                        model_dict[model_name]['model'],
-                        model_dict[model_name]['processor'],
-                        PROMPT.format(question=question),
-                        open_source_prefix_steps + prefix_steps,
-                        img_path
-                    )
-                )
-            elif 'llama_vision' in model_name:
-                return modified_llama_response(
-                    llama_forward(
-                        model_dict[model_name]['model'],
-                        model_dict[model_name]['processor'],
-                        PROMPT.format(question=question),
-                        open_source_prefix_steps + prefix_steps,
-                        img_path
-                    )
-                )
-        except Exception as e:
-            print(f"Error generating response for {model_name}: {e}")
-            time.sleep(1)
-            return None
 
 
     def _determine_correctness(self, comcts_dict, client, question, gt_answer, activated_models):
