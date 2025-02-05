@@ -651,7 +651,6 @@ def step_correctness_to_list(response, depth):
                 self._process_incorrect_paths(
                     model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps
                 )
-#----------------------------------- CoMCTS.search  끝
 
 
             if iteration >= self.max_iterations:
@@ -661,36 +660,10 @@ def step_correctness_to_list(response, depth):
                 failed_search_file.write(json.dumps(data) + "\n")
                 failed_search_file.flush()
                 break
+#----------------------------------- CoMCTS.search  끝
 
 
-
-    def _determine_correctness(self, comcts_dict, client, question, gt_answer, activated_models):
-        """determine correctness."""
-        all_correctness = []
-        for model_name in activated_models:
-            if comcts_dict[model_name]['valid'] == -1:
-                continue
-            response = comcts_dict[model_name]['response']
-            model_answer = response.split('### The final answer is:')[-1].strip()
-            while True:
-                try:
-                    judge_output = gpt_forward(client, JUDGE_PROMPT.format(question=question, model_answer=model_answer, gt_answer=gt_answer))
-                    break
-                except Exception as e:
-                    time.sleep(1)
-                    print(e)
-            
-            is_correct = get_correctness(judge_output)
-
-            all_correctness.append(is_correct)
-            comcts_dict[model_name]['is_correct'] = is_correct
-        
-        return all_correctness
-        
-
-
-        
-
+   
     def _process_incorrect_paths(self, model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps):
         """Handle scenarios where correct paths are not found."""
         for model_name in activated_models:
@@ -1037,9 +1010,6 @@ def llama_forward(model, processor, question, prefix_prompt, img_path, temperatu
         generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
     return prefix_prompt + output_texts
-
-
-
 
 
 
