@@ -549,6 +549,22 @@ def get_step(response, depth):
                     try_count = 0
                     try:
                         step_correctness_response = gpt_forward(client, LOCATE_ERROR_PROMPT.format(question=question, reasoning=comcts_dict[model_name]['response'], gt=gt_answer), base64_image, temperature)
+#---------------------
+LOCATE_ERROR_PROMPT = ''''### Question:
+{question}
+
+### Ground truth answer:
+{gt}
+
+### Reasoning steps:
+{reasoning}
+
+Given the question and reasoning steps listed above, along with the corresponding ground truth answer, please evaluate the correctness of the image description, rationales, and each step of the reasoning process.
+
+Requirements:
+1. Output the decision ("correct", "neutral", "incorrect") for each step following the format of "Final Decision:\nImage Description: [your decision]; Rationales: [your decision]; Let's think step by step: [your decision]; Step 1: [your decision]; Step 2: [your decision]; ...";
+2. Do not provide any explanation.'''
+#---------------------------
                         step_correctness = step_correctness_to_list(step_correctness_response, depth=depth)
 #-------------------------------------------- step_correctness_to_list 함수
 def step_correctness_to_list(response, depth):
