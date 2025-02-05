@@ -408,7 +408,10 @@ def _generate_model_response(self, model_name, question, prefix_steps, base64_im
 
 PROMPT = """Generate an image description based on the question.
 Then, provide a rationale to analyze the question.
-Next, generate a step-by-step reasoning process to solve the problem. Ensure the steps are logical and concise. Finally, provide a concise summary of the final answer in the following format: 'The final answer is: xxx'. If the question is multiple-choice, provide the options along with their content. If it is free-form, directly present the final result. Do not provide any explanation.
+Next, generate a step-by-step reasoning process to solve the problem. Ensure the steps are logical and concise.
+Finally, provide a concise summary of the final answer in the following format:
+'The final answer is: xxx'. If the question is multiple-choice, provide the options along with their content.
+If it isfree-form, directly present the final result. Do not provide any explanation.
 
 Format your response with the following sections, separated by ###:
 ### Image Description:
