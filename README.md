@@ -341,6 +341,29 @@ def encode_image(image_path):
             while not node.is_leaf():
                 node = node.best_child(self.args.exploration_weight)
             prefix_steps = reformat_reasoning_prefix(node.text)
+#------------------------------------
+def reformat_reasoning_prefix(reasoning):
+        if '### The final answer is:' in reasoning:
+            raise ValueError()
+        reasoning_list = reasoning.split('###')
+        output = ''
+        len_steps = len(reasoning_list)
+        for i, step in enumerate(reasoning_list):
+            if i == 0:
+                continue
+            if i == 1:
+                step = '### Image Description:' + ('###' + step).replace('### Image Description:', '').strip()
+                output = output + step.replace('### Image Description:', '### Image Description:\n') + '\n\n'
+            elif i == 2:
+                step = '### Rationales:' + ('###' + step).replace('### Rationales:', '').strip()
+                output = output + step.replace('### Rationales:', '### Rationales:\n') + '\n\n'
+            elif i == 3:
+                output = output + '### ' + step.strip() + '\n\n'
+            elif i > 3:
+                step = f'### Step {i-3}:' + ('###' + step).replace(f'### Step {i-3}:', '').strip()
+                output = output + step.replace(f'### Step {i-3}:', f'### Step {i-3}:\n') + '\n\n'
+        return output
+#------------------------
 
             # init comcts_dict
             comcts_dict = {activated_model: {'valid': 1} for activated_model in activated_models}
@@ -357,6 +380,52 @@ def encode_image(image_path):
                 response = comcts_dict[model_name]['response']
                 if not check_validity(response):
                     comcts_dict[model_name]['valid'] = -1
+#---------------------------------
+def check_validity
+#if not check_data(response):return False
+#if len(response.split('### The final answer is:')) == 2 return True
+return False
+def check_data(steps):
+    steps = steps.split('###')
+    len_steps = len(steps)
+    for i, step in enumerate(steps):
+        if i == 0:
+            if step == '':
+                continue
+            else:
+                return False
+
+        elif i == 1:
+            if step.strip().startswith('Image Description:'):
+                continue
+            else:
+                return False
+
+        elif i == 2:
+            if step.strip().startswith('Rationales:'):
+                continue
+            else:
+                return False
+        
+        elif i == 3:
+            if step.strip().startswith("Let's think step by step"):
+                continue
+            else:
+                return False
+        
+        elif i > 3 and i < len_steps - 1:
+            if step.strip().startswith(f"Step {i-3}"):
+                continue
+            else:
+                return False
+
+        elif i == len_steps-1:
+            if step.strip().startswith("The final answer is:") and i > 4:
+                continue
+            else:
+                return False
+    return True
+#------------------------------------------------
 
             ## Simulation, Error Positioning
             all_correctness = self._determine_correctness(
@@ -421,8 +490,6 @@ def get_step(response, depth):
     res = response.split('###')
     return '###' + res[depth]
 #--------------------------
-
-
             if 'gpt-4o' in self.args.eval_expert:
                 is_correct = comcts_dict[model_name]['is_correct']
                 while True:
@@ -935,53 +1002,6 @@ def llama_forward(model, processor, question, prefix_prompt, img_path, temperatu
     )[0]
     return prefix_prompt + output_texts
 
-def check_data(steps):
-    steps = steps.split('###')
-    len_steps = len(steps)
-    for i, step in enumerate(steps):
-        if i == 0:
-            if step == '':
-                continue
-            else:
-                return False
-
-        elif i == 1:
-            if step.strip().startswith('Image Description:'):
-                continue
-            else:
-                return False
-
-        elif i == 2:
-            if step.strip().startswith('Rationales:'):
-                continue
-            else:
-                return False
-        
-        elif i == 3:
-            if step.strip().startswith("Let's think step by step"):
-                continue
-            else:
-                return False
-        
-        elif i > 3 and i < len_steps - 1:
-            if step.strip().startswith(f"Step {i-3}"):
-                continue
-            else:
-                return False
-
-        elif i == len_steps-1:
-            if step.strip().startswith("The final answer is:") and i > 4:
-                continue
-            else:
-                return False
-    return True
-
-def check_validity(response):
-    if not check_data(response):
-        return False
-    if len(response.split('### The final answer is:')) == 2:
-        return True
-    return False
 
 
 
@@ -1020,26 +1040,6 @@ def modified_llama_response(response):
     return response
 
 
-def reformat_reasoning_prefix(reasoning):
-        if '### The final answer is:' in reasoning:
-            raise ValueError()
-        reasoning_list = reasoning.split('###')
-        output = ''
-        len_steps = len(reasoning_list)
-        for i, step in enumerate(reasoning_list):
-            if i == 0:
-                continue
-            if i == 1:
-                step = '### Image Description:' + ('###' + step).replace('### Image Description:', '').strip()
-                output = output + step.replace('### Image Description:', '### Image Description:\n') + '\n\n'
-            elif i == 2:
-                step = '### Rationales:' + ('###' + step).replace('### Rationales:', '').strip()
-                output = output + step.replace('### Rationales:', '### Rationales:\n') + '\n\n'
-            elif i == 3:
-                output = output + '### ' + step.strip() + '\n\n'
-            elif i > 3:
-                step = f'### Step {i-3}:' + ('###' + step).replace(f'### Step {i-3}:', '').strip()
-                output = output + step.replace(f'### Step {i-3}:', f'### Step {i-3}:\n') + '\n\n'
-        return output
+
 ```
     
