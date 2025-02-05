@@ -297,7 +297,41 @@ class CoMCTS:
         img_path = find_img_path(data, self.args)
         base64_image = encode_image(img_path)
         temperature = 0.9
+#-----------------------------
+def question_process(d):
+    if 'question' in d.keys():
+        question = d['question']
+    elif '\nAnswer the question with a short answer.' in d["conversations"][0]['value']:
+        question = d["conversations"][0]['value'].replace('\nAnswer the question with a short answer.', '')
+    elif "\nAnswer with the option's letter from the given choices directly." in d["conversations"][0]['value']:
+        question = d["conversations"][0]['value'].replace("\nAnswer with the option's letter from the given choices directly.", '')
+    elif "\nAnswer the question using a single word or phrase." in d["conversations"][0]['value']:
+        question = d["conversations"][0]['value'].replace("\nAnswer the question using a single word or phrase.", '')
+    elif "<image>\nFirst perform reasoning, then finally select the question from the choices in the following format: Answer: xxx.\n" in d["conversations"][0]['value']:
+        question = d["conversations"][0]['value'].replace('<image>\nFirst perform reasoning, then finally select the question from the choices in the following format: Answer: xxx.\n', '')
+    elif "<image>\nBased on the image, directly select the correct answer for the following question:\n" in d["conversations"][0]['value']:
+        question = d["conversations"][0]['value'].replace('<image>\nBased on the image, directly select the correct answer for the following question:\n', '')
+    else:
+        question = d["conversations"][0]['value']
 
+    if not question.startswith('Question:'):
+        question = 'Question: ' + question
+
+    return question
+
+def find_img_path(d,args):
+    if os.path.exists(os.path.join(args.image_dir_path, d['image'])):
+        img_path = os.path.join(args.image_dir_path, d['image'])
+    elif os.path.exists(d['image']):
+        img_path = d['image']
+    else:
+        raise ValueError(f"Image path not found: {d['image']}")
+
+    return img_path
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+#---------------------------
         while True:
             print(f'Start the {iteration} round of search')            
             iteration += len(activated_models)
@@ -777,10 +811,7 @@ from collections import Counter
 import heapq
 import math
 
-# Function to encode the image
-def encode_image(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+
 
 
 def split_list(lst, n):
@@ -798,36 +829,6 @@ def read_jsonl(file):
     return data
 
 
-def question_process(d):
-    if 'question' in d.keys():
-        question = d['question']
-    elif '\nAnswer the question with a short answer.' in d["conversations"][0]['value']:
-        question = d["conversations"][0]['value'].replace('\nAnswer the question with a short answer.', '')
-    elif "\nAnswer with the option's letter from the given choices directly." in d["conversations"][0]['value']:
-        question = d["conversations"][0]['value'].replace("\nAnswer with the option's letter from the given choices directly.", '')
-    elif "\nAnswer the question using a single word or phrase." in d["conversations"][0]['value']:
-        question = d["conversations"][0]['value'].replace("\nAnswer the question using a single word or phrase.", '')
-    elif "<image>\nFirst perform reasoning, then finally select the question from the choices in the following format: Answer: xxx.\n" in d["conversations"][0]['value']:
-        question = d["conversations"][0]['value'].replace('<image>\nFirst perform reasoning, then finally select the question from the choices in the following format: Answer: xxx.\n', '')
-    elif "<image>\nBased on the image, directly select the correct answer for the following question:\n" in d["conversations"][0]['value']:
-        question = d["conversations"][0]['value'].replace('<image>\nBased on the image, directly select the correct answer for the following question:\n', '')
-    else:
-        question = d["conversations"][0]['value']
-
-    if not question.startswith('Question:'):
-        question = 'Question: ' + question
-
-    return question
-
-def find_img_path(d,args):
-    if os.path.exists(os.path.join(args.image_dir_path, d['image'])):
-        img_path = os.path.join(args.image_dir_path, d['image'])
-    elif os.path.exists(d['image']):
-        img_path = d['image']
-    else:
-        raise ValueError(f"Image path not found: {d['image']}")
-
-    return img_path
 
 
 def gpt_forward(client, prompt, base64_image=None, temperature=0.9):
