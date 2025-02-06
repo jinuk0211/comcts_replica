@@ -548,7 +548,8 @@ def get_step(response, depth):
                     max_try_count = 3
                     try_count = 0
                     try:
-                        step_correctness_response = gpt_forward(client, LOCATE_ERROR_PROMPT.format(question=question, reasoning=comcts_dict[model_name]['response'], gt=gt_answer), base64_image, temperature)
+                        step_correctness_response = gpt_forward(client, LOCATE_ERROR_PROMPT.format(question=question,
+ reasoning=comcts_dict[model_name]['response'], gt=gt_answer), base64_image, temperature)
 #---------------------
 LOCATE_ERROR_PROMPT = ''''### Question:
 {question}
