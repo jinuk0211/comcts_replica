@@ -638,7 +638,11 @@ def step_correctness_to_list(response, depth):
 
                 step_value.insert(0, round(up_node.value,3))
                 up_node = up_node.parent
-
+#--------------------------------
+up_node = current_node  # Both now reference the same object
+up_node.value = 10  # Modifying up_node also modifies current_node
+current_node.value = 10
+#--------------------------
             value = (current_node.value +
                     self.args.exploration_weight * math.sqrt(math.log(current_node.parent.visits+1) / current_node.visits+1))
 
