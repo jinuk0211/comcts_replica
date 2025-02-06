@@ -625,11 +625,13 @@ def step_correctness_to_list(response, depth):
             step_value = []
             for idx in range(suffix_steps_depth, 0, -1):
                 if idx > prefix_steps_depth:
+# 예시 image description, rationale, reasoning 2단계 - depth 4 > image description - depth 1의 경우
                     # new node
                     new_value = sum(step_correctness[prefix_steps_depth:idx])
                     up_node.update_value(parent_visits=expand_node.visits, parent_value=expand_node.value, new_value=new_value, new_visits=idx-prefix_steps_depth)
                     up_node.update_visits()
                 else:
+# 예시 image description - depth 1 > image description - depth 1의 경우
                     new_value = step_correctness[idx-1]
                     up_node.update_value(parent_visits=up_node.parent.visits, parent_value=up_node.parent.value, new_value=new_value, new_visits=1)
                     up_node.update_visits()
