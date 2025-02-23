@@ -501,7 +501,14 @@ def check_data(steps):
                     print(e)
             
             is_correct = get_correctness(judge_output)
-
+JUDGE_PROMPT = """Evaluate whether the model's answer matches the correct result. 
+- If it does not align, respond with 'No'.
+- If there is a logical error in the reasoning steps, respond with 'No'.
+- If the model's answer aligns with the correct result, respond with 'Yes'. 
+Provide only 'Yes' or 'No' as the output, with no explanation.
+The question is: {question}
+The model's answer is: {model_answer}
+The correct result is: {gt_answer}"""
 #------------------
 #-----------------
 def get_correctness(judge_output):
