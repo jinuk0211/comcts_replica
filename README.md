@@ -746,9 +746,10 @@ current_node.value = 10
 
 
 
-#지금까지     def search(self, data, client, activated_models, model_dict, ans_file, failed_search_file):
-        iteration = 0       
-        while True: while문이였다
+#지금까지
+#def search(self, data, client, activated_models, model_dict, ans_file, failed_search_file):
+#iteration = 0       
+#while True: while문이였다 이는 len(activated model에 의해 20개의 max_iteration까지 계속 진행
 #----------------------------------- CoMCTS.search  끝
 
 
