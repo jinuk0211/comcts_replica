@@ -743,6 +743,12 @@ current_node.value = 10
                 failed_search_file.write(json.dumps(data) + "\n")
                 failed_search_file.flush()
                 break
+
+
+
+#지금까지     def search(self, data, client, activated_models, model_dict, ans_file, failed_search_file):
+        iteration = 0       
+        while True: while문이였다
 #----------------------------------- CoMCTS.search  끝
 
 
