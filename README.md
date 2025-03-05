@@ -596,7 +596,8 @@ def get_correctness(judge_output):
                 comcts_dict = self._process_correct_paths(
                     model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps
                 )
-#-------------------------------------process_correct_path 설명
+#-------------------------------------process_correct_path 설명 
+#comcts_dict의 response는 이제 다 생성된거고 expand_node는 expansion 전의 완성되지 않은 상태
     def _process_correct_paths(self, model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps):
         """Handle scenarios where correct paths are found."""
         for model_name in activated_models:
