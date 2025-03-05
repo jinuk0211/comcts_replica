@@ -482,6 +482,12 @@ Format your response with the following sections, separated by ###:
 ### The final answer is: 
 
 {question}"""
+
+
+prefix prompt 의 경우
+Please complete the response based on the reasoning prefix without altering its content.
+
+Reasoning prefix: {reasoning_prefix}
 #--------------
 
                 comcts_dict[model_name]['response'] = response if response else ''
