@@ -585,7 +585,7 @@ def get_correctness(judge_output):
             if len(all_correctness) == 0:
                 continue
 
-            expand_node = node
+            expand_node = node #SELF.ROOT의 GET_BEST_CHILD 함수실행한 노드
             if 1 in all_correctness:
                 comcts_dict = self._process_correct_paths(
                     model_dict, comcts_dict, expand_node, question, gt_answer, img_path, base64_image, temperature, activated_models, client, prefix_steps
