@@ -674,7 +674,7 @@ def step_correctness_to_list(response, depth):
                 comcts_dict[model_name]['valid'] = -1
 
 
-            prefix_steps_depth = get_depth(expand_node.text)
+            prefix_steps_depth = get_depth(expand_node.text) # class node의self.text = self.prefix_steps + self.step_text
             suffix_steps_depth = get_depth(comcts_dict[model_name]['response']) - 1 # remove final answer
             new_step = ''
             current_node = expand_node
